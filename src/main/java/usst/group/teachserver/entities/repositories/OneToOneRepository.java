@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface OneToOneRepository extends CrudRepository<OneToOne, Long> {
     List<OneToOne> findByTeacherId(Long teacherId);
+
+    List<OneToOne> findByStudentId(Long studentId);
 }

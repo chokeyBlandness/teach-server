@@ -3,13 +3,16 @@ package usst.group.teachserver.controllers;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.springframework.web.bind.annotation.*;
-import usst.group.teachserver.entities.OneToOne;
-import usst.group.teachserver.entities.Student;
-import usst.group.teachserver.entities.Teacher;
+import usst.group.teachserver.entities.*;
+import usst.group.teachserver.entities.repositories.CourseRepository;
 import usst.group.teachserver.entities.repositories.OneToOneRepository;
 import usst.group.teachserver.entities.repositories.StudentRepository;
 import usst.group.teachserver.entities.repositories.TeacherRepository;
+import usst.group.teachserver.entities.transactEntities.TransOneToOne;
 
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 @RestController
@@ -20,13 +23,16 @@ public class StudentControllers {
     private StudentRepository studentRepository;
     private TeacherRepository teacherRepository;
     private OneToOneRepository oneToOneRepository;
+    private CourseRepository courseRepository;
 
     public StudentControllers(StudentRepository studentRepository,
                               TeacherRepository teacherRepository,
-                              OneToOneRepository oneToOneRepository) {
+                              OneToOneRepository oneToOneRepository,
+                              CourseRepository courseRepository) {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.oneToOneRepository = oneToOneRepository;
+        this.courseRepository = courseRepository;
         gson = new GsonBuilder().setDateFormat("yyyy-MM-dd").create();
     }
 
@@ -69,7 +75,11 @@ public class StudentControllers {
     String getTeacherList(@RequestBody String grade) {
         grade = gson.fromJson(grade, String.class);
         List<Teacher> foundTeacher;
-        foundTeacher = teacherRepository.findTeachersByGrade(grade);
+        if (grade.equals("小学生")) {
+            foundTeacher = teacherRepository.findTeachersByGrade("高一");
+        } else {
+            foundTeacher = teacherRepository.findTeachersByGrade(grade);
+        }
         return gson.toJson(foundTeacher);
     }
 
@@ -81,19 +91,92 @@ public class StudentControllers {
         return gson.toJson(teacherRepository.findTeacherByPhoneNumber(phoneNumber));
     }
 
+    //查询指定老师可预约时间
+    @PostMapping(path = "/getTeacherCourses")
+    public @ResponseBody
+    String getTeacherCourses(@RequestBody String teacherInfo) {
+        teacherInfo = gson.fromJson(teacherInfo, String.class);
+        List<Course> teacherCourses = courseRepository.findByTeacherId(teacherRepository.findTeacherByPhoneNumber(teacherInfo).getId());
+        List<Date> coursesDate = new ArrayList<Date>();
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.DATE,30);
+        for (Course course : teacherCourses) {
+            if (course.getIsAble() == 1) {
+                if (course.getDay().before(calendar.getTime())) {
+                    coursesDate.add(course.getDay());
+                }
+            }
+        }
+        List<Date> notOrderedDates = new ArrayList<Date>();
+        for (Calendar calendar1 = Calendar.getInstance();
+             calendar1.getTime().before(calendar.getTime());
+             calendar1.add(Calendar.DATE, 1)) {
+            boolean isOrdered = false;
+            for (Date date : coursesDate) {
+                if (calendar1.getTime().getYear() == date.getYear() &&
+                        calendar1.getTime().getMonth() == date.getMonth() &&
+                        calendar1.getTime().getDate() == date.getDate()) {
+                    isOrdered = true;
+                }
+            }
+            if (isOrdered) {
+                notOrderedDates.add(calendar1.getTime());
+            }
+        }
+        return gson.toJson(notOrderedDates);
+    }
+
+    //查询指定学生辅导信息
+    @PostMapping(path = "/getTutors")
+    public @ResponseBody
+    String getTutors(@RequestBody String studentPhoneNumber) {
+        studentPhoneNumber = gson.fromJson(studentPhoneNumber, String.class);
+        List<OneToOne> oneToOnes = oneToOneRepository.findByStudentId(
+                studentRepository.findStudentByPhoneNumber(studentPhoneNumber).getId()
+        );
+        List<TransOneToOne> transOneToOnes = new ArrayList<TransOneToOne>();
+        for (OneToOne oneToOne : oneToOnes) {
+            transOneToOnes.add(changeOneToOneToTransOneToOne(oneToOne));
+        }
+        return gson.toJson(transOneToOnes);
+    }
+
     //预约辅导
     @PostMapping(path = "/appointTutor")
     public @ResponseBody
     String increaseOneToOne(@RequestBody String tutor) {
-        OneToOne oneToOne = gson.fromJson(tutor, OneToOne.class);
-        oneToOneRepository.save(oneToOne);
+        TransOneToOne transOneToOne = gson.fromJson(tutor, TransOneToOne.class);
+        OneToOne newOneToOne = changeTransOneToOneToOneToOne(transOneToOne);
+        if (newOneToOne == null) {
+            return gson.toJson("appointFail");
+        }
+        oneToOneRepository.save(newOneToOne);
         return gson.toJson("appointSuccessfully");
     }
 
 
-    @GetMapping(path = "test")
-    public @ResponseBody
-    String test() {
-        return gson.toJson(studentRepository.findAll());
+    private TransOneToOne changeOneToOneToTransOneToOne(OneToOne oneToOne) {
+        if (oneToOne == null) {
+            return null;
+        }
+        TransOneToOne transOneToOne = new TransOneToOne();
+        transOneToOne.setStudentPhone(studentRepository.findStudentById(oneToOne.getStudentId()).getPhoneNumber());
+        transOneToOne.setTeacherPhone(teacherRepository.findTeacherById(oneToOne.getTeacherId()).getPhoneNumber());
+        transOneToOne.setDate(oneToOne.getDate());
+        transOneToOne.setStatus(oneToOne.getStatus());
+        return transOneToOne;
     }
+
+    private OneToOne changeTransOneToOneToOneToOne(TransOneToOne transOneToOne) {
+        if (transOneToOne == null) {
+            return null;
+        }
+        OneToOne oneToOne = new OneToOne();
+        oneToOne.setTeacherId(teacherRepository.findTeacherByPhoneNumber(transOneToOne.getTeacherPhone()).getId());
+        oneToOne.setStudentId(studentRepository.findStudentByPhoneNumber(transOneToOne.getStudentPhone()).getId());
+        oneToOne.setDate(transOneToOne.getDate());
+        oneToOne.setStatus(transOneToOne.getStatus());
+        return oneToOne;
+    }
+
 }

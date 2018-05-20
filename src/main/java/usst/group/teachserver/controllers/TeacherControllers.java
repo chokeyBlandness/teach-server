@@ -11,6 +11,8 @@ import usst.group.teachserver.entities.repositories.CourseRepository;
 import usst.group.teachserver.entities.repositories.OneToOneRepository;
 import usst.group.teachserver.entities.repositories.StudentRepository;
 import usst.group.teachserver.entities.repositories.TeacherRepository;
+import usst.group.teachserver.entities.transactEntities.OneToOneStudentInfo;
+import usst.group.teachserver.entities.transactEntities.TransCourse;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -80,16 +82,25 @@ public class TeacherControllers {
     @PostMapping(path = "/increaseCourse")
     public @ResponseBody
     String increaseCourse(@RequestBody String course) {
-        Course courseInfo = gson.fromJson(course, Course.class);
-        courseRepository.save(courseInfo);
-        return gson.toJson(courseInfo);
+        TransCourse courseInfo = gson.fromJson(course, TransCourse.class);
+        List<Course> courses = courseRepository.findByTeacherId(teacherRepository
+                .findTeacherByPhoneNumber(courseInfo.getTeacherPhone())
+                .getId());
+        for (Course course1 : courses) {
+            if (course1.getDay().getYear() == courseInfo.getDate().getYear() &&
+                    course1.getDay().getMonth() == courseInfo.getDate().getMonth() &&
+                    course1.getDay().getDate() == courseInfo.getDate().getDate()) {
+                return gson.toJson("exist");
+            }
+        }
+        Course newCourse = new Course();
+        newCourse.setTeacherId(teacherRepository.findTeacherByPhoneNumber(courseInfo.getTeacherPhone()).getId());
+        newCourse.setDay(courseInfo.getDate());
+        newCourse.setIsAble(1);
+        courseRepository.save(newCourse);
+        return gson.toJson("succeed");
     }
 
-    @GetMapping(path = "/getCourses")
-    public @ResponseBody
-    String getCourses() {
-        return gson.toJson(courseRepository.findAll());
-    }
 
     //查询已预约学生信息
     @PostMapping(path = "/getOneToOneStudents")
@@ -114,41 +125,5 @@ public class TeacherControllers {
         return gson.toJson(oneToOneStudentInfos);
     }
 
-    //已预约学生信息
-    private class OneToOneStudentInfo {
-        private String phoneNumber;
-        private String name;
-        private Date date;
-
-        public Date getDate() {
-            return date;
-        }
-
-        public void setDate(Date date) {
-            this.date = date;
-        }
-
-        public OneToOneStudentInfo(String phoneNumber, String name, Date date) {
-            this.phoneNumber = phoneNumber;
-            this.name = name;
-            this.date = date;
-        }
-
-        public String getPhoneNumber() {
-            return phoneNumber;
-        }
-
-        public void setPhoneNumber(String phoneNumber) {
-            this.phoneNumber = phoneNumber;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-    }
 
 }

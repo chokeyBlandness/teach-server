@@ -9,4 +9,6 @@ public interface TeacherRepository extends CrudRepository<Teacher,Long> {
     Teacher findTeacherByPhoneNumber(String phoneNumber);
 
     List<Teacher> findTeachersByGrade(String grade);
+
+    Teacher findTeacherById(Long id);
 }
