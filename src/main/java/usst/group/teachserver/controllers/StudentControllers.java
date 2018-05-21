@@ -3,11 +3,10 @@ package usst.group.teachserver.controllers;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.springframework.web.bind.annotation.*;
+import org.w3c.dom.ls.LSException;
 import usst.group.teachserver.entities.*;
-import usst.group.teachserver.entities.repositories.CourseRepository;
-import usst.group.teachserver.entities.repositories.OneToOneRepository;
-import usst.group.teachserver.entities.repositories.StudentRepository;
-import usst.group.teachserver.entities.repositories.TeacherRepository;
+import usst.group.teachserver.entities.repositories.*;
+import usst.group.teachserver.entities.transactEntities.TransComment;
 import usst.group.teachserver.entities.transactEntities.TransOneToOne;
 
 import java.util.ArrayList;
@@ -24,15 +23,19 @@ public class StudentControllers {
     private TeacherRepository teacherRepository;
     private OneToOneRepository oneToOneRepository;
     private CourseRepository courseRepository;
+    private CommentRepository commentRepository;
+
 
     public StudentControllers(StudentRepository studentRepository,
                               TeacherRepository teacherRepository,
                               OneToOneRepository oneToOneRepository,
-                              CourseRepository courseRepository) {
+                              CourseRepository courseRepository,
+                              CommentRepository commentRepository) {
         this.studentRepository = studentRepository;
         this.teacherRepository = teacherRepository;
         this.oneToOneRepository = oneToOneRepository;
         this.courseRepository = courseRepository;
+        this.commentRepository = commentRepository;
         gson = new GsonBuilder().setDateFormat("yyyy-MM-dd").create();
     }
 
@@ -136,9 +139,55 @@ public class StudentControllers {
         );
         List<TransOneToOne> transOneToOnes = new ArrayList<TransOneToOne>();
         for (OneToOne oneToOne : oneToOnes) {
+            oneToOne=judgeOneToOneDateToChangeStatus(oneToOne);
             transOneToOnes.add(changeOneToOneToTransOneToOne(oneToOne));
         }
         return gson.toJson(transOneToOnes);
+    }
+
+    //判断OneToOne对象中的时间来调整其状态量
+    OneToOne judgeOneToOneDateToChangeStatus(OneToOne oneToOne) {
+        if (oneToOne.getDate().getYear()==Calendar.getInstance().getTime().getYear()&&
+                oneToOne.getDate().getMonth()==Calendar.getInstance().getTime().getMonth()&&
+                oneToOne.getDate().getDate()==Calendar.getInstance().getTime().getDate()) {
+            oneToOne.setStatus(1);
+            oneToOneRepository.save(oneToOne);
+        } else if (oneToOne.getDate().after(Calendar.getInstance().getTime())) {
+            oneToOne.setStatus(2);
+            oneToOneRepository.save(oneToOne);
+        }
+        return oneToOne;
+    }
+
+    //查看老师评价
+    @PostMapping(path = "/getComments")
+    public @ResponseBody
+    String getComments(@RequestBody String teacherPhoneNumber) {
+        teacherPhoneNumber = gson.fromJson(teacherPhoneNumber, String.class);
+        Teacher teacher=teacherRepository.findTeacherByPhoneNumber(teacherPhoneNumber);
+        if (teacher == null) {
+            return gson.toJson(null);
+        }
+        List<Comment> comments = commentRepository.findByTeacherId(teacher.getId());
+        return gson.toJson(changeCommentToTrans(comments));
+
+    }
+
+    private List<TransComment> changeCommentToTrans(List<Comment> comments) {
+        if (comments == null) {
+            return null;
+        }
+        List<TransComment> commentList = new ArrayList<TransComment>();
+        for (Comment comment : comments) {
+            TransComment transComment = new TransComment();
+            transComment.setId(comment.getId());
+            transComment.setStudentPhone(studentRepository.findStudentById(comment.getStudentId()).getPhoneNumber());
+            transComment.setTeacherPhone(teacherRepository.findTeacherById(comment.getTeacherId()).getPhoneNumber());
+            transComment.setContent(comment.getContent());
+            transComment.setDate(comment.getDate());
+            commentList.add(transComment);
+        }
+        return commentList;
     }
 
     //预约辅导

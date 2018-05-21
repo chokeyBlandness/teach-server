@@ -1,16 +1,11 @@
-package usst.group.teachserver.entities;
+package usst.group.teachserver.entities.transactEntities;
 
-
-import javax.persistence.Entity;
-import javax.persistence.Id;
 import java.util.Date;
 
-@Entity
-public class Comment {
-    @Id
+public class TransComment {
     private Long id;
-    private Long teacherId;
-    private Long studentId;
+    private String teacherPhone;
+    private String studentPhone;
     private String content;
     private Date date;
 
@@ -22,20 +17,20 @@ public class Comment {
         this.id = id;
     }
 
-    public Long getTeacherId() {
-        return teacherId;
+    public String getTeacherPhone() {
+        return teacherPhone;
     }
 
-    public void setTeacherId(Long teacherId) {
-        this.teacherId = teacherId;
+    public void setTeacherPhone(String teacherPhone) {
+        this.teacherPhone = teacherPhone;
     }
 
-    public Long getStudentId() {
-        return studentId;
+    public String getStudentPhone() {
+        return studentPhone;
     }
 
-    public void setStudentId(Long studentId) {
-        this.studentId = studentId;
+    public void setStudentPhone(String studentPhone) {
+        this.studentPhone = studentPhone;
     }
 
     public String getContent() {

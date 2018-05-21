@@ -15,6 +15,7 @@ import usst.group.teachserver.entities.transactEntities.OneToOneStudentInfo;
 import usst.group.teachserver.entities.transactEntities.TransCourse;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -117,6 +118,7 @@ public class TeacherControllers {
         }
         List<OneToOneStudentInfo> oneToOneStudentInfos = new ArrayList<OneToOneStudentInfo>();
         for (OneToOne oneToOne : oneToOnes) {
+            oneToOne =judgeOneToOneDateToChangeStatus(oneToOne);
             Student student=studentRepository.findStudentById(oneToOne.getStudentId());
             oneToOneStudentInfos.add(new OneToOneStudentInfo(student.getPhoneNumber(),
                     student.getName(),oneToOne.getDate()));
@@ -125,5 +127,18 @@ public class TeacherControllers {
         return gson.toJson(oneToOneStudentInfos);
     }
 
+    //判断OneToOne对象中的时间来调整其状态量
+    OneToOne judgeOneToOneDateToChangeStatus(OneToOne oneToOne) {
+        if (oneToOne.getDate().getYear()==Calendar.getInstance().getTime().getYear()&&
+                oneToOne.getDate().getMonth()==Calendar.getInstance().getTime().getMonth()&&
+                oneToOne.getDate().getDate()==Calendar.getInstance().getTime().getDate()) {
+            oneToOne.setStatus(1);
+            oneToOneRepository.save(oneToOne);
+        } else if (oneToOne.getDate().after(Calendar.getInstance().getTime())) {
+            oneToOne.setStatus(2);
+            oneToOneRepository.save(oneToOne);
+        }
+        return oneToOne;
+    }
 
 }
